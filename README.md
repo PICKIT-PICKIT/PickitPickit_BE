@@ -89,7 +89,7 @@
 
 ### 🏛️ 프로젝트 구조
 ```text
-gyeonggi.gyeonggifesta
+ Pickitpickit
 	member // entity 기준으로 패키지 분리
 	- controller
 	- service
