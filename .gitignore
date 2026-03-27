@@ -39,4 +39,4 @@ out/
 ### yml ###
 src/main/resources/application.yml
 
-/compose.yml
+.env
