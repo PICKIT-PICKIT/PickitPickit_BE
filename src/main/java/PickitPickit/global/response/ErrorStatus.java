@@ -40,7 +40,11 @@ public enum ErrorStatus {
             "외부 KCISA API 일일 호출 제한을 초과했습니다. DB 조회 엔드포인트를 이용해주세요."),
 
     /* 구인 정보 API */
-    EXTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "EXTERNAL_ERROR", "외부 API 오류가 발생했습니다.");
+    EXTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "EXTERNAL_ERROR", "외부 API 오류가 발생했습니다."),
+
+    /* Store / Kakao */
+    KAKAO_API_ERROR(HttpStatus.BAD_GATEWAY, "KAKAO_API_ERROR", "카카오 API 호출에 실패했습니다."),
+    INVALID_RADIUS(HttpStatus.BAD_REQUEST, "INVALID_RADIUS", "반경은 500, 1000, 3000, 5000m 중 하나여야 합니다.");
 
     private final HttpStatus status;
     private final String code;
