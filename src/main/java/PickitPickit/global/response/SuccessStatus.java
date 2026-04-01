@@ -15,7 +15,10 @@ public enum SuccessStatus {
     OK(HttpStatus.OK, "OK", "요청이 성공적으로 처리되었습니다."),
     UPDATED(HttpStatus.OK, "UPDATED", "리소스가 수정되었습니다."),
     DELETED(HttpStatus.OK, "DELETED", "리소스가 삭제되었습니다."),
-    FETCHED(HttpStatus.OK, "FETCHED", "데이터 조회 성공");
+    FETCHED(HttpStatus.OK, "FETCHED", "데이터 조회 성공"),
+
+    // Store
+    NEARBY_STORES_FETCHED(HttpStatus.OK, "NEARBY_STORES_FETCHED", "주변 매장 조회 성공");
 
     private final HttpStatus status;
     private final String code;
