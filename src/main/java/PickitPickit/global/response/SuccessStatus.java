@@ -18,7 +18,8 @@ public enum SuccessStatus {
     FETCHED(HttpStatus.OK, "FETCHED", "데이터 조회 성공"),
 
     // Store
-    NEARBY_STORES_FETCHED(HttpStatus.OK, "NEARBY_STORES_FETCHED", "주변 매장 조회 성공");
+    NEARBY_STORES_FETCHED(HttpStatus.OK, "NEARBY_STORES_FETCHED", "주변 매장 조회 성공"),
+    STORE_DATA_LOADED(HttpStatus.OK, "STORE_DATA_LOADED", "매장 데이터 적재 완료");
 
     private final HttpStatus status;
     private final String code;
