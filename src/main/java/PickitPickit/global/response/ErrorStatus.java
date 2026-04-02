@@ -44,7 +44,11 @@ public enum ErrorStatus {
 
     /* Store / Kakao */
     KAKAO_API_ERROR(HttpStatus.BAD_GATEWAY, "KAKAO_API_ERROR", "카카오 API 호출에 실패했습니다."),
-    INVALID_RADIUS(HttpStatus.BAD_REQUEST, "INVALID_RADIUS", "반경은 500, 1000, 3000, 5000m 중 하나여야 합니다.");
+    INVALID_RADIUS(HttpStatus.BAD_REQUEST, "INVALID_RADIUS", "반경은 500, 1000, 3000, 5000m 중 하나여야 합니다."),
+
+    /* Store / 공공데이터 */
+    PUBLIC_API_ERROR(HttpStatus.BAD_GATEWAY, "PUBLIC_API_ERROR", "공공데이터 API 호출에 실패했습니다."),
+    STORE_NOT_FOUND(HttpStatus.NOT_FOUND, "STORE_NOT_FOUND", "해당 매장을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;
