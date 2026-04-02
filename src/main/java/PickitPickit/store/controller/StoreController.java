@@ -2,6 +2,7 @@ package PickitPickit.store.controller;
 
 import PickitPickit.global.response.ApiResponse;
 import PickitPickit.global.response.SuccessStatus;
+import PickitPickit.store.dto.StoreDetailResponse;
 import PickitPickit.store.dto.StoreResponse;
 import PickitPickit.store.dto.StoreType;
 import PickitPickit.store.service.StoreService;
@@ -43,5 +44,21 @@ public class StoreController {
     ) {
         List<StoreResponse> stores = storeService.getNearbyStores(lat, lng, radius, type);
         return ApiResponse.success(SuccessStatus.NEARBY_STORES_FETCHED, stores);
+    }
+
+    @Operation(
+            summary = "매장 상세 조회",
+            description = "매장의 상세 정보와 등록된 상품/재고 목록을 조회합니다."
+    )
+    @GetMapping("/{storeId}")
+    public ResponseEntity<ApiResponse<StoreDetailResponse>> getStoreDetail(
+            @Parameter(description = "매장 ID (DB PK)", required = true)
+            @PathVariable Long storeId,
+            @Parameter(description = "사용자 위도 (거리 계산용, 선택)", example = "37.5665")
+            @RequestParam(required = false) Double lat,
+            @Parameter(description = "사용자 경도 (거리 계산용, 선택)", example = "126.9780")
+            @RequestParam(required = false) Double lng
+    ) {
+        return ApiResponse.success(SuccessStatus.FETCHED, storeService.getStoreDetail(storeId, lat, lng));
     }
 }

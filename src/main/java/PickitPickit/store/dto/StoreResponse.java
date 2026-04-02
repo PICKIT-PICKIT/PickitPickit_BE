@@ -1,5 +1,6 @@
 package PickitPickit.store.dto;
 
+import PickitPickit.store.domain.Store;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import lombok.Getter;
@@ -9,8 +10,11 @@ import lombok.Getter;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class StoreResponse {
 
-    /** 카카오 place_id (리뷰 연동 시 storeId 로 사용) */
-    private final String placeId;
+    /** 우리 DB PK */
+    private final Long id;
+
+    /** 외부 API 식별자 (공공데이터 MNG_NO / 카카오 place_id 등) */
+    private final String sourcePlaceId;
 
     /** 매장명 */
     private final String name;
@@ -31,8 +35,25 @@ public class StoreResponse {
     private final String address;
 
     /** 전화번호 */
-    private final String phone;
+    private final String contact;
 
-    /** 카카오맵 상세 URL */
+    /** 카카오맵 상세 URL (PUBLIC_API 출처이면 null) */
     private final String kakaoDetailUrl;
+
+    /**
+     * DB 엔티티 → 응답 DTO 변환
+     */
+    public static StoreResponse from(Store store, int distanceMeters) {
+        return StoreResponse.builder()
+                .id(store.getId())
+                .sourcePlaceId(store.getSourcePlaceId())
+                .name(store.getName())
+                .type(store.getStoreType())
+                .latitude(store.getLatitude().doubleValue())
+                .longitude(store.getLongitude().doubleValue())
+                .distance(distanceMeters)
+                .address(store.getAddress())
+                .contact(store.getContact())
+                .build();
+    }
 }
