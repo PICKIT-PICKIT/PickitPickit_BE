@@ -104,3 +104,47 @@
 ```
 
 ### ⬇️ ERD
+
+---
+
+### 🗄️ DB 백업/복구 (간단)
+상세 운영 가이드는 [`docs/db-operations-guide.md`](docs/db-operations-guide.md)를 참고하세요.
+
+1. 백업 (`pg_dump`, custom format)
+```bash
+mkdir -p backups # backups 폴더 없다면
+docker compose exec -T postgres pg_dump -U pickit -d pickit -Fc \
+  > backups/pickit_$(date +%Y%m%d_%H%M%S).dump
+```
+
+2. 복구 (`pg_restore`)
+```bash
+# 앱(bootRun 등) 먼저 종료
+
+# DB 컨테이너는 켜둠
+docker compose up -d postgres
+# 복구 전 세션 정리 
+docker compose exec -T postgres psql -U pickit -d postgres -c "
+SELECT pg_terminate_backend(pid)
+FROM pg_stat_activity
+WHERE datname = 'pickit'
+  AND pid <> pg_backend_pid();
+"
+
+# DB 재생성
+docker compose exec -T postgres dropdb -U pickit --if-exists pickit
+docker compose exec -T postgres createdb -U pickit pickit
+
+# 덤프 복원
+docker compose exec -T postgres pg_restore -U pickit -d pickit --no-owner --no-privileges \
+  < backups/<backup-file>.dump # <backup-file>.dump 부분에 백업 파일명 입력
+```
+
+3. dump 파일 공유 원칙
+* dump 파일은 Git에 커밋하지 않습니다.
+* 접근제어된 팀 스토리지(팀 드라이브/private bucket)에만 업로드합니다.
+* 팀 채널에는 `파일명`, `생성시각(KST)`, `SHA256`, `복원가이드 링크`만 공유합니다.
+
+4. 참고
+* 운영에서는 `docker compose down -v` / `docker volume prune` 실행 전에 반드시 백업하세요.
+* Flyway는 스키마 버전 관리, `pg_dump`/`pg_restore`는 운영 데이터 보존/복구 용도입니다.
