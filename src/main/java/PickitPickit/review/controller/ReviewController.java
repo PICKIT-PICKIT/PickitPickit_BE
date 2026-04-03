@@ -48,7 +48,7 @@ public class ReviewController {
     @Operation(summary = "매장 리뷰 목록 조회", description = "특정 매장의 리뷰 목록 및 요약 정보를 조회합니다.")
     @GetMapping("/stores/{storeId}")
     public ResponseEntity<ApiResponse<StoreReviewSummaryResponse>> getStoreReviews(
-            @Parameter(description = "매장 ID (카카오 place_id)", required = true)
+            @Parameter(description = "매장 ID (DB PK)", required = true)
             @PathVariable Long storeId
     ) {
         return ApiResponse.success(SuccessStatus.FETCHED, reviewService.getStoreReviews(storeId));
