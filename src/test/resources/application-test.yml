@@ -1,0 +1,31 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:pickit-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        format_sql: false
+    show-sql: false
+
+  flyway:
+    enabled: false
+
+kakao:
+  api:
+    key: test-kakao-api-key
+    base-url: https://dapi.kakao.com
+
+public-api:
+  service-key: test-public-api-key
+  base-url: https://apis.data.go.kr/1741000/youth_game_providers/info
+
+jwt:
+  secret: test-jwt-secret-must-be-at-least-32-bytes
+  access-token-expiration: 3600000
+  refresh-token-expiration: 1209600000
