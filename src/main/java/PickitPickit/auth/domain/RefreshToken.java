@@ -16,6 +16,10 @@ import java.time.LocalDateTime;
         name = "refresh_tokens",
         uniqueConstraints = {
                 @UniqueConstraint(
+                        name = "uq_refresh_tokens_user_id",
+                        columnNames = "user_id"
+                ),
+                @UniqueConstraint(
                         name = "uq_refresh_tokens_token_hash",
                         columnNames = "token_hash"
                 )
