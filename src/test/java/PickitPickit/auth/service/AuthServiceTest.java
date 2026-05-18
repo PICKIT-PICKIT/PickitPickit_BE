@@ -1,9 +1,13 @@
 package PickitPickit.auth.service;
 
 import PickitPickit.auth.client.KakaoAuthClient;
+import PickitPickit.auth.domain.RefreshToken;
 import PickitPickit.auth.dto.client.KakaoUserResponse;
 import PickitPickit.auth.dto.request.KakaoLoginRequest;
+import PickitPickit.auth.dto.request.LogoutRequest;
+import PickitPickit.auth.dto.request.RefreshTokenRequest;
 import PickitPickit.auth.dto.response.LoginResponse;
+import PickitPickit.auth.dto.response.TokenResponse;
 import PickitPickit.global.exception.ApiException;
 import PickitPickit.global.security.JwtTokenProvider;
 import PickitPickit.global.security.TokenPair;
@@ -18,6 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -113,6 +118,41 @@ class AuthServiceTest {
 
         verify(userRepository, never()).save(any(User.class));
         verify(jwtTokenProvider, never()).createTokenPair(any());
+    }
+
+    @Test
+    void reissueRotatesRefreshTokenWhenStoredTokenIsValid() {
+        User user = User.createFromKakao("12345", "민수", null);
+        ReflectionTestUtils.setField(user, "id", 1L);
+        RefreshToken savedToken = RefreshToken.create(user, "hashed-refresh-token", LocalDateTime.now().plusDays(1));
+        TokenPair tokenPair = tokenPair();
+
+        when(jwtTokenProvider.getRefreshTokenUserId("old-refresh-token")).thenReturn(1L);
+        when(refreshTokenService.getValidToken("old-refresh-token")).thenReturn(savedToken);
+        when(jwtTokenProvider.createTokenPair(1L)).thenReturn(tokenPair);
+
+        TokenResponse response = authService.reissue(new RefreshTokenRequest("old-refresh-token"));
+
+        assertThat(response.accessToken()).isEqualTo("access-token");
+        assertThat(response.refreshToken()).isEqualTo("refresh-token");
+        verify(refreshTokenService).rotate(user, "refresh-token", tokenPair.refreshTokenExpiresAt());
+    }
+
+    @Test
+    void logoutRevokesRefreshToken() {
+        authService.logout(new LogoutRequest("refresh-token"));
+
+        verify(refreshTokenService).revoke("refresh-token");
+    }
+
+    @Test
+    void getCurrentUserReturnsAuthenticatedUserProfile() {
+        User user = User.createFromKakao("12345", "민수", "profile-image");
+        ReflectionTestUtils.setField(user, "id", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThat(authService.getCurrentUser(1L).nickname()).isEqualTo("민수");
     }
 
     private KakaoUserResponse kakaoUser(Long id, String nickname, String profileImageUrl) {
