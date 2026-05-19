@@ -5,6 +5,7 @@ import PickitPickit.global.response.ErrorStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -63,6 +64,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(es.getStatus())
                 .body(ErrorResponse.of(es.getCode(), e.getMessage()));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleNotReadable(HttpMessageNotReadableException e) {
+        log.warn("[MESSAGE-NOT-READABLE] {}", e.getMessage());
+        var es = ErrorStatus.INVALID_INPUT;
+        return ResponseEntity
+                .status(es.getStatus())
+                .body(ErrorResponse.of(es.getCode(), "요청 본문을 확인해주세요."));
     }
 
     /**

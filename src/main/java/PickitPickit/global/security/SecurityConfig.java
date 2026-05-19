@@ -1,7 +1,12 @@
 package PickitPickit.global.security;
 
+import PickitPickit.global.dto.ErrorResponse;
+import PickitPickit.global.response.ErrorStatus;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
@@ -32,6 +37,7 @@ public class SecurityConfig {
     private static final String ACCESS_TOKEN_TYPE = "access";
 
     private final JwtProperties jwtProperties;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -49,8 +55,15 @@ public class SecurityConfig {
                                 "/api/auth/token/reissue",
                                 "/api/auth/logout"
                         ).permitAll()
+                        .requestMatchers("/api/onboarding/**").authenticated()
                         .requestMatchers("/api/auth/me").authenticated()
                         .anyRequest().permitAll()
+                )
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint((request, response, authException) ->
+                                writeError(response, ErrorStatus.UNAUTHORIZED))
+                        .accessDeniedHandler((request, response, accessDeniedException) ->
+                                writeError(response, ErrorStatus.FORBIDDEN))
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.decoder(jwtDecoder())))
                 .build();
@@ -104,5 +117,12 @@ public class SecurityConfig {
                 jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8),
                 "HmacSHA256"
         );
+    }
+
+    private void writeError(HttpServletResponse response, ErrorStatus errorStatus) throws java.io.IOException {
+        response.setStatus(errorStatus.getStatus().value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        objectMapper.writeValue(response.getWriter(), ErrorResponse.of(errorStatus.getCode(), errorStatus.getMessage()));
     }
 }

@@ -15,6 +15,10 @@ import lombok.NoArgsConstructor;
                 @UniqueConstraint(
                         name = "uq_users_kakao_id",
                         columnNames = "kakao_id"
+                ),
+                @UniqueConstraint(
+                        name = "uq_users_nickname",
+                        columnNames = "nickname"
                 )
         }
 )
@@ -34,23 +38,63 @@ public class User extends BaseTimeEntity {
     @Column(name = "profile_image_url", length = 500)
     private String profileImageUrl;
 
+    @Column(name = "kakao_profile_image_url", length = 500)
+    private String kakaoProfileImageUrl;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "profile_image_type", length = 20)
+    private ProfileImageType profileImageType;
+
+    @Column(name = "onboarding_completed", nullable = false)
+    private boolean onboardingCompleted;
+
     @Builder
-    private User(String kakaoId, String nickname, String profileImageUrl) {
+    private User(String kakaoId, String nickname, String profileImageUrl,
+                 String kakaoProfileImageUrl, ProfileImageType profileImageType,
+                 boolean onboardingCompleted) {
         this.kakaoId = kakaoId;
         this.nickname = nickname;
         this.profileImageUrl = profileImageUrl;
+        this.kakaoProfileImageUrl = kakaoProfileImageUrl;
+        this.profileImageType = profileImageType;
+        this.onboardingCompleted = onboardingCompleted;
     }
 
     public static User createFromKakao(String kakaoId, String nickname, String profileImageUrl) {
+        ProfileImageType profileImageType = profileImageUrl != null && !profileImageUrl.isBlank()
+                ? ProfileImageType.KAKAO
+                : null;
+
         return User.builder()
                 .kakaoId(kakaoId)
                 .nickname(nickname)
                 .profileImageUrl(profileImageUrl)
+                .kakaoProfileImageUrl(profileImageUrl)
+                .profileImageType(profileImageType)
+                .onboardingCompleted(false)
                 .build();
     }
 
-    public void updateProfile(String nickname, String profileImageUrl) {
+    public void updateKakaoProfileImageUrl(String kakaoProfileImageUrl) {
+        this.kakaoProfileImageUrl = kakaoProfileImageUrl;
+    }
+
+    public void updateNickname(String nickname) {
         this.nickname = nickname;
+        this.onboardingCompleted = false;
+    }
+
+    public void updateProfileImage(ProfileImageType profileImageType, String profileImageUrl) {
+        this.profileImageType = profileImageType;
         this.profileImageUrl = profileImageUrl;
+        this.onboardingCompleted = false;
+    }
+
+    public void markOnboardingIncomplete() {
+        this.onboardingCompleted = false;
+    }
+
+    public void completeOnboarding() {
+        this.onboardingCompleted = true;
     }
 }
