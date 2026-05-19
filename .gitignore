@@ -45,3 +45,6 @@ src/main/resources/application.yml
 backups/*
 !backups/.gitkeep
 *.dump
+
+.DS_Store
+.codex/
