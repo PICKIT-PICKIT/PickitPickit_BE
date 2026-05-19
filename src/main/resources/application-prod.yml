@@ -1,0 +1,41 @@
+server:
+  forward-headers-strategy: framework
+  port: ${SERVER_PORT:8080}
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
+
+  flyway:
+    enabled: ${SPRING_FLYWAY_ENABLED:true}
+    locations: ${SPRING_FLYWAY_LOCATIONS:classpath:db/migration}
+
+kakao:
+  api:
+    key: ${KAKAO_API_KEY}
+    base-url: ${KAKAO_API_BASE_URL:https://dapi.kakao.com}
+
+public-api:
+  service-key: ${PUBLIC_API_KEY}
+  base-url: ${PUBLIC_API_BASE_URL:https://apis.data.go.kr/1741000/youth_game_providers/info}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+logging:
+  level:
+    org.flywaydb: info
