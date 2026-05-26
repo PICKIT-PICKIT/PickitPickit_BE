@@ -1,12 +1,22 @@
 package PickitPickit.global.security;
 
+import PickitPickit.global.response.ErrorStatus;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
@@ -20,10 +30,11 @@ import java.nio.charset.StandardCharsets;
 
 @Configuration
 @RequiredArgsConstructor
-// 개발 중 전체 API 확인할 때는 @EnableMethodSecurity를 빼라.
-// @PreAuthorize가 살아 있으면 permitAll이어도 막힐 수 있다.
-// @EnableMethodSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
+
+    private static final String TOKEN_TYPE_CLAIM = "token_type";
+    private static final String ACCESS_TOKEN_TYPE = "access";
 
     private final JwtProperties jwtProperties;
 
@@ -33,38 +44,84 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
                 .authorizeHttpRequests(auth -> auth
-                        .anyRequest().permitAll()
+                        .requestMatchers(
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**",
+                                "/actuator/health"
+                        ).permitAll()
+
+                        .requestMatchers(
+                                "/api/auth/kakao/login",
+                                "/api/auth/token/reissue",
+                                "/api/auth/logout"
+                        ).permitAll()
+
+                        // 회원/비회원 매장 조회 API
+                        .requestMatchers(
+                                "/api/stores/**"
+                        ).permitAll()
+
+                        // 로그인 필요 API
+                        .requestMatchers(
+                                "/api/auth/me",
+                                "/api/onboarding/**",
+                                "/api/reviews/**",
+                                "/api/search-logs/**"
+                        ).authenticated()
+
+                        // 관리자/매장주 API
+                        // 실제 ADMIN / STORE_OWNER 검사는 @PreAuthorize에서 처리
+                        .requestMatchers(
+                                "/api/admin/**",
+                                "/api/owner/**"
+                        ).authenticated()
+
+                        .anyRequest().authenticated()
+                )
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint((request, response, authException) ->
+                                writeError(response, ErrorStatus.UNAUTHORIZED)
+                        )
+                        .accessDeniedHandler((request, response, accessDeniedException) ->
+                                writeError(response, ErrorStatus.FORBIDDEN)
+                        )
+                )
+                .oauth2ResourceServer(oauth2 ->
+                        oauth2.jwt(jwt -> jwt.decoder(jwtDecoder()))
                 )
                 .build();
     }
 
-    /**
-     * AuthService, JwtTokenProvider에서 JwtEncoder를 쓰고 있으므로 Bean은 유지한다.
-     */
     @Bean
     public JwtEncoder jwtEncoder() {
         return new NimbusJwtEncoder(new ImmutableSecret<>(secretKey()));
     }
 
-    /**
-     * RefreshTokenService, AuthController 등에서 JwtDecoder Bean이 필요할 수 있으므로 유지한다.
-     */
     @Bean
     public JwtDecoder jwtDecoder() {
         NimbusJwtDecoder jwtDecoder = createJwtDecoder();
-        jwtDecoder.setJwtValidator(
-                JwtValidators.createDefaultWithIssuer(jwtProperties.getIssuer())
-        );
+
+        jwtDecoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                JwtValidators.createDefaultWithIssuer(jwtProperties.getIssuer()),
+                accessTokenValidator()
+        ));
+
         return jwtDecoder;
     }
 
     @Bean
     public JwtDecoder refreshTokenJwtDecoder() {
         NimbusJwtDecoder jwtDecoder = createJwtDecoder();
+
         jwtDecoder.setJwtValidator(
                 JwtValidators.createDefaultWithIssuer(jwtProperties.getIssuer())
         );
+
         return jwtDecoder;
     }
 
@@ -74,10 +131,60 @@ public class SecurityConfig {
                 .build();
     }
 
+    private OAuth2TokenValidator<Jwt> accessTokenValidator() {
+        return jwt -> {
+            String tokenType = jwt.getClaimAsString(TOKEN_TYPE_CLAIM);
+
+            if (ACCESS_TOKEN_TYPE.equals(tokenType)) {
+                return OAuth2TokenValidatorResult.success();
+            }
+
+            return OAuth2TokenValidatorResult.failure(
+                    new OAuth2Error(
+                            "invalid_token",
+                            "Access token is required for protected APIs.",
+                            null
+                    )
+            );
+        };
+    }
+
     private SecretKey secretKey() {
         return new SecretKeySpec(
                 jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8),
                 "HmacSHA256"
         );
+    }
+
+    private void writeError(HttpServletResponse response, ErrorStatus errorStatus) throws java.io.IOException {
+        response.setStatus(errorStatus.getStatus().value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+
+        String body = """
+                {
+                  "code": "%s",
+                  "message": "%s",
+                  "data": null
+                }
+                """.formatted(
+                escapeJson(errorStatus.getCode()),
+                escapeJson(errorStatus.getMessage())
+        );
+
+        response.getWriter().write(body);
+    }
+
+    private String escapeJson(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        return value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 }
