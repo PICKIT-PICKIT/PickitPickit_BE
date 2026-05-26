@@ -74,21 +74,33 @@ public class AuthService {
             throw new ApiException(ErrorStatus.KAKAO_LOGIN_FAILED, "카카오 회원번호를 조회할 수 없습니다.");
         }
 
-        String nickname = kakaoUser.nickname();
-        if (!StringUtils.hasText(nickname)) {
-            throw new ApiException(ErrorStatus.KAKAO_LOGIN_FAILED, "카카오 닉네임 동의가 필요합니다.");
-        }
-
         String kakaoId = String.valueOf(kakaoUser.id());
         String profileImageUrl = kakaoUser.profileImageUrl();
 
         return userRepository.findByKakaoId(kakaoId)
-                .map(user -> updateUserProfile(user, nickname, profileImageUrl))
-                .orElseGet(() -> userRepository.save(User.createFromKakao(kakaoId, nickname, profileImageUrl)));
+                .map(user -> updateKakaoProfileImage(user, profileImageUrl))
+                .orElseGet(() -> userRepository.save(User.createFromKakao(
+                        kakaoId,
+                        createInitialNickname(kakaoUser.nickname(), kakaoId),
+                        profileImageUrl
+                )));
     }
 
-    private User updateUserProfile(User user, String nickname, String profileImageUrl) {
-        user.updateProfile(nickname, profileImageUrl);
+    private User updateKakaoProfileImage(User user, String profileImageUrl) {
+        user.updateKakaoProfileImageUrl(profileImageUrl);
         return user;
+    }
+
+    private String createInitialNickname(String preferredNickname, String kakaoId) {
+        if (StringUtils.hasText(preferredNickname) && !userRepository.existsByNickname(preferredNickname)) {
+            return preferredNickname;
+        }
+
+        String temporaryNickname = "pickit_" + kakaoId;
+        if (!userRepository.existsByNickname(temporaryNickname)) {
+            return temporaryNickname;
+        }
+
+        throw new ApiException(ErrorStatus.DUPLICATE_NICKNAME, "초기 닉네임을 생성할 수 없습니다.");
     }
 }

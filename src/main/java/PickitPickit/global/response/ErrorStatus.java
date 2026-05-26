@@ -32,6 +32,7 @@ public enum ErrorStatus {
     /* 409 CONFLICT */
     DUPLICATE_RESOURCE(HttpStatus.CONFLICT, "DUPLICATE_RESOURCE", "이미 존재하는 리소스입니다."),
     CONTACT_ALREADY_EXISTS(HttpStatus.CONFLICT, "CONTACT_ALREADY_EXISTS", "이미 관계가 존재합니다."),
+    DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "DUPLICATE_NICKNAME", "이미 사용 중인 닉네임입니다."),
 
     /* 500 INTERNAL_SERVER_ERROR */
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR", "서버 내부 오류가 발생했습니다."),
@@ -49,7 +50,15 @@ public enum ErrorStatus {
 
     /* Store / 공공데이터 */
     PUBLIC_API_ERROR(HttpStatus.BAD_GATEWAY, "PUBLIC_API_ERROR", "공공데이터 API 호출에 실패했습니다."),
-    STORE_NOT_FOUND(HttpStatus.NOT_FOUND, "STORE_NOT_FOUND", "해당 매장을 찾을 수 없습니다.");
+    STORE_NOT_FOUND(HttpStatus.NOT_FOUND, "STORE_NOT_FOUND", "해당 매장을 찾을 수 없습니다."),
+
+    /* Onboarding */
+    INVALID_NICKNAME(HttpStatus.BAD_REQUEST, "INVALID_NICKNAME", "닉네임은 2자 이상 15자 이하로 입력해주세요."),
+    INVALID_PROFILE_IMAGE(HttpStatus.BAD_REQUEST, "INVALID_PROFILE_IMAGE", "허용되지 않은 프로필 이미지입니다."),
+    INVALID_PROFILE_IMAGE_TYPE(HttpStatus.BAD_REQUEST, "INVALID_PROFILE_IMAGE_TYPE", "허용되지 않은 프로필 이미지 타입입니다."),
+    INTEREST_TAG_REQUIRED(HttpStatus.BAD_REQUEST, "INTEREST_TAG_REQUIRED", "관심 태그를 최소 1개 선택해주세요."),
+    INTEREST_TAG_NOT_FOUND(HttpStatus.NOT_FOUND, "INTEREST_TAG_NOT_FOUND", "존재하지 않거나 비활성화된 관심 태그입니다."),
+    ONBOARDING_INCOMPLETE(HttpStatus.BAD_REQUEST, "ONBOARDING_INCOMPLETE", "온보딩 완료 조건을 충족하지 못했습니다.");
 
     private final HttpStatus status;
     private final String code;
