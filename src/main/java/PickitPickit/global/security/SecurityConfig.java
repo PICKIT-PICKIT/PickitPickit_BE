@@ -57,16 +57,16 @@ public class SecurityConfig {
 
                         .requestMatchers(
                                 "/api/auth/kakao/login",
+                                "/api/auth/kakao/authorize",
+                                "/api/auth/kakao/callback",
                                 "/api/auth/token/reissue",
                                 "/api/auth/logout"
                         ).permitAll()
 
-                        // 회원/비회원 매장 조회 API
                         .requestMatchers(
                                 "/api/stores/**"
                         ).permitAll()
 
-                        // 로그인 필요 API
                         .requestMatchers(
                                 "/api/auth/me",
                                 "/api/onboarding/**",
@@ -74,8 +74,6 @@ public class SecurityConfig {
                                 "/api/search-logs/**"
                         ).authenticated()
 
-                        // 관리자/매장주 API
-                        // 실제 ADMIN / STORE_OWNER 검사는 @PreAuthorize에서 처리
                         .requestMatchers(
                                 "/api/admin/**",
                                 "/api/owner/**"
@@ -97,9 +95,14 @@ public class SecurityConfig {
                 .build();
     }
 
+    /**
+     * 중요:
+     * NimbusJwtEncoder에는 SecretKey가 아니라 byte[] 기반 ImmutableSecret을 쓰는 게 안전하다.
+     */
     @Bean
     public JwtEncoder jwtEncoder() {
-        return new NimbusJwtEncoder(new ImmutableSecret<>(secretKey()));
+        byte[] secretBytes = jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8);
+        return new NimbusJwtEncoder(new ImmutableSecret<>(secretBytes));
     }
 
     @Bean

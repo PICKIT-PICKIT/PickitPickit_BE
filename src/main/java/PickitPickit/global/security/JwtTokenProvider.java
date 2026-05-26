@@ -4,18 +4,20 @@ import PickitPickit.global.exception.ApiException;
 import PickitPickit.global.response.ErrorStatus;
 import PickitPickit.user.domain.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 
 @Component
-@RequiredArgsConstructor
 public class JwtTokenProvider {
 
     private static final String TOKEN_TYPE_CLAIM = "token_type";
@@ -24,7 +26,8 @@ public class JwtTokenProvider {
     private static final String ROLE_CLAIM = "role";
 
     private final JwtEncoder jwtEncoder;
-    private final JwtDecoder jwtDecoder;
+    private final JwtDecoder accessTokenJwtDecoder;
+    private final JwtDecoder refreshTokenJwtDecoder;
 
     @Value("${jwt.access-token-validity-seconds:3600}")
     private long accessTokenValiditySeconds;
@@ -34,6 +37,16 @@ public class JwtTokenProvider {
 
     @Value("${jwt.issuer:pickitpickit}")
     private String issuer;
+
+    public JwtTokenProvider(
+            JwtEncoder jwtEncoder,
+            @Qualifier("jwtDecoder") JwtDecoder accessTokenJwtDecoder,
+            @Qualifier("refreshTokenJwtDecoder") JwtDecoder refreshTokenJwtDecoder
+    ) {
+        this.jwtEncoder = jwtEncoder;
+        this.accessTokenJwtDecoder = accessTokenJwtDecoder;
+        this.refreshTokenJwtDecoder = refreshTokenJwtDecoder;
+    }
 
     public TokenPair createTokenPair(User user) {
         Instant now = Instant.now();
@@ -47,18 +60,20 @@ public class JwtTokenProvider {
     }
 
     public Long getRefreshTokenUserId(String refreshToken) {
-        Jwt jwt = decode(refreshToken, ErrorStatus.REFRESH_TOKEN_INVALID);
+        Jwt jwt = decode(refreshTokenJwtDecoder, refreshToken, ErrorStatus.REFRESH_TOKEN_INVALID);
         validateTokenType(jwt, REFRESH_TOKEN_TYPE, ErrorStatus.REFRESH_TOKEN_INVALID);
         return parseSubject(jwt.getSubject(), ErrorStatus.REFRESH_TOKEN_INVALID);
     }
 
     public Long getAccessTokenUserId(String accessToken) {
-        Jwt jwt = decode(accessToken, ErrorStatus.INVALID_INPUT);
+        Jwt jwt = decode(accessTokenJwtDecoder, accessToken, ErrorStatus.INVALID_INPUT);
         validateTokenType(jwt, ACCESS_TOKEN_TYPE, ErrorStatus.INVALID_INPUT);
         return parseSubject(jwt.getSubject(), ErrorStatus.INVALID_INPUT);
     }
 
     private String createToken(User user, Instant issuedAt, Instant expiresAt, String tokenType) {
+        JwsHeader jwsHeader = JwsHeader.with(MacAlgorithm.HS256).build();
+
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuer(issuer)
                 .issuedAt(issuedAt)
@@ -68,10 +83,12 @@ public class JwtTokenProvider {
                 .claim(ROLE_CLAIM, user.getRole().name())
                 .build();
 
-        return jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+        return jwtEncoder.encode(
+                JwtEncoderParameters.from(jwsHeader, claims)
+        ).getTokenValue();
     }
 
-    private Jwt decode(String token, ErrorStatus errorStatus) {
+    private Jwt decode(JwtDecoder jwtDecoder, String token, ErrorStatus errorStatus) {
         try {
             return jwtDecoder.decode(token);
         } catch (Exception e) {
