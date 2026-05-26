@@ -2,87 +2,95 @@ package PickitPickit.global.security;
 
 import PickitPickit.global.exception.ApiException;
 import PickitPickit.global.response.ErrorStatus;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
-import org.springframework.security.oauth2.jwt.*;
+import PickitPickit.user.domain.User;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 
 @Component
+@RequiredArgsConstructor
 public class JwtTokenProvider {
 
     private static final String TOKEN_TYPE_CLAIM = "token_type";
     private static final String ACCESS_TOKEN_TYPE = "access";
     private static final String REFRESH_TOKEN_TYPE = "refresh";
+    private static final String ROLE_CLAIM = "role";
 
     private final JwtEncoder jwtEncoder;
     private final JwtDecoder jwtDecoder;
-    private final JwtProperties jwtProperties;
 
-    public JwtTokenProvider(
-            JwtEncoder jwtEncoder,
-            @Qualifier("refreshTokenJwtDecoder") JwtDecoder jwtDecoder,
-            JwtProperties jwtProperties
-    ) {
-        this.jwtEncoder = jwtEncoder;
-        this.jwtDecoder = jwtDecoder;
-        this.jwtProperties = jwtProperties;
-    }
+    @Value("${jwt.access-token-validity-seconds:3600}")
+    private long accessTokenValiditySeconds;
 
-    public TokenPair createTokenPair(Long userId) {
+    @Value("${jwt.refresh-token-validity-seconds:1209600}")
+    private long refreshTokenValiditySeconds;
+
+    @Value("${jwt.issuer:pickitpickit}")
+    private String issuer;
+
+    public TokenPair createTokenPair(User user) {
         Instant now = Instant.now();
-        Instant accessTokenExpiresAt = now.plusMillis(jwtProperties.getAccessTokenExpiration());
-        Instant refreshTokenExpiresAt = now.plusMillis(jwtProperties.getRefreshTokenExpiration());
+        Instant accessExpiresAt = now.plusSeconds(accessTokenValiditySeconds);
+        Instant refreshExpiresAt = now.plusSeconds(refreshTokenValiditySeconds);
 
-        return new TokenPair(
-                createToken(userId, ACCESS_TOKEN_TYPE, now, accessTokenExpiresAt),
-                createToken(userId, REFRESH_TOKEN_TYPE, now, refreshTokenExpiresAt),
-                refreshTokenExpiresAt
-        );
+        String accessToken = createToken(user, now, accessExpiresAt, ACCESS_TOKEN_TYPE);
+        String refreshToken = createToken(user, now, refreshExpiresAt, REFRESH_TOKEN_TYPE);
+
+        return new TokenPair(accessToken, refreshToken, accessExpiresAt, refreshExpiresAt);
     }
 
     public Long getRefreshTokenUserId(String refreshToken) {
-        Jwt jwt = decodeRefreshToken(refreshToken);
-
-        try {
-            return Long.parseLong(jwt.getSubject());
-        } catch (NumberFormatException e) {
-            throw new ApiException(ErrorStatus.REFRESH_TOKEN_INVALID, "리프레시 토큰의 사용자 정보가 올바르지 않습니다.");
-        }
+        Jwt jwt = decode(refreshToken, ErrorStatus.REFRESH_TOKEN_INVALID);
+        validateTokenType(jwt, REFRESH_TOKEN_TYPE, ErrorStatus.REFRESH_TOKEN_INVALID);
+        return parseSubject(jwt.getSubject(), ErrorStatus.REFRESH_TOKEN_INVALID);
     }
 
-    private String createToken(Long userId, String tokenType, Instant issuedAt, Instant expiresAt) {
+    public Long getAccessTokenUserId(String accessToken) {
+        Jwt jwt = decode(accessToken, ErrorStatus.INVALID_INPUT);
+        validateTokenType(jwt, ACCESS_TOKEN_TYPE, ErrorStatus.INVALID_INPUT);
+        return parseSubject(jwt.getSubject(), ErrorStatus.INVALID_INPUT);
+    }
+
+    private String createToken(User user, Instant issuedAt, Instant expiresAt, String tokenType) {
         JwtClaimsSet claims = JwtClaimsSet.builder()
-                .issuer(jwtProperties.getIssuer())
-                .subject(String.valueOf(userId))
+                .issuer(issuer)
                 .issuedAt(issuedAt)
                 .expiresAt(expiresAt)
+                .subject(String.valueOf(user.getId()))
                 .claim(TOKEN_TYPE_CLAIM, tokenType)
+                .claim(ROLE_CLAIM, user.getRole().name())
                 .build();
-        JwsHeader headers = JwsHeader.with(MacAlgorithm.HS256).build();
 
-        return jwtEncoder.encode(JwtEncoderParameters.from(headers, claims)).getTokenValue();
+        return jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
     }
 
-    private Jwt decodeRefreshToken(String refreshToken) {
+    private Jwt decode(String token, ErrorStatus errorStatus) {
         try {
-            Jwt jwt = jwtDecoder.decode(refreshToken);
-            validateRefreshTokenType(jwt);
-            return jwt;
-        } catch (JwtValidationException e) {
-            if (e.getMessage() != null && e.getMessage().contains("expired")) {
-                throw new ApiException(ErrorStatus.REFRESH_TOKEN_EXPIRED, "만료된 리프레시 토큰입니다.");
-            }
-            throw new ApiException(ErrorStatus.REFRESH_TOKEN_INVALID, "유효하지 않은 리프레시 토큰입니다.");
-        } catch (JwtException | IllegalArgumentException e) {
-            throw new ApiException(ErrorStatus.REFRESH_TOKEN_INVALID, "유효하지 않은 리프레시 토큰입니다.");
+            return jwtDecoder.decode(token);
+        } catch (Exception e) {
+            throw new ApiException(errorStatus, "유효하지 않은 토큰입니다.");
         }
     }
 
-    private void validateRefreshTokenType(Jwt jwt) {
-        if (!REFRESH_TOKEN_TYPE.equals(jwt.getClaimAsString(TOKEN_TYPE_CLAIM))) {
-            throw new ApiException(ErrorStatus.REFRESH_TOKEN_INVALID, "리프레시 토큰이 아닙니다.");
+    private void validateTokenType(Jwt jwt, String expectedTokenType, ErrorStatus errorStatus) {
+        String tokenType = jwt.getClaimAsString(TOKEN_TYPE_CLAIM);
+        if (!expectedTokenType.equals(tokenType)) {
+            throw new ApiException(errorStatus, "토큰 종류가 올바르지 않습니다.");
+        }
+    }
+
+    private Long parseSubject(String subject, ErrorStatus errorStatus) {
+        try {
+            return Long.parseLong(subject);
+        } catch (NumberFormatException e) {
+            throw new ApiException(errorStatus, "토큰 subject가 올바르지 않습니다.");
         }
     }
 }

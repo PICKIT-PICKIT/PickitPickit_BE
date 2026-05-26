@@ -33,7 +33,7 @@ public class AuthService {
     public LoginResponse loginWithKakao(KakaoLoginRequest request) {
         KakaoUserResponse kakaoUser = kakaoAuthClient.getUserInfo(request.kakaoAccessToken());
         User user = findOrCreateUser(kakaoUser);
-        TokenPair tokenPair = jwtTokenProvider.createTokenPair(user.getId());
+        TokenPair tokenPair = jwtTokenProvider.createTokenPair(user);
 
         refreshTokenService.rotate(user, tokenPair.refreshToken(), tokenPair.refreshTokenExpiresAt());
 
@@ -50,7 +50,7 @@ public class AuthService {
             throw new ApiException(ErrorStatus.REFRESH_TOKEN_INVALID, "리프레시 토큰의 사용자 정보가 일치하지 않습니다.");
         }
 
-        TokenPair tokenPair = jwtTokenProvider.createTokenPair(user.getId());
+        TokenPair tokenPair = jwtTokenProvider.createTokenPair(user);
         refreshTokenService.rotate(user, tokenPair.refreshToken(), tokenPair.refreshTokenExpiresAt());
 
         return TokenResponse.from(tokenPair);

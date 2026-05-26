@@ -1,12 +1,14 @@
 package PickitPickit.auth.dto.response;
 
 import PickitPickit.user.domain.User;
+import PickitPickit.user.domain.UserRole;
 
 public record AuthUserResponse(
         Long id,
         String nickname,
         String profileImageUrl,
-        boolean onboardingCompleted
+        boolean onboardingCompleted,
+        UserRole role
 ) {
 
     public static AuthUserResponse from(User user) {
@@ -14,7 +16,8 @@ public record AuthUserResponse(
                 user.getId(),
                 user.getNickname(),
                 user.getProfileImageUrl(),
-                user.isOnboardingCompleted()
+                user.isOnboardingCompleted(),
+                user.getRole()
         );
     }
 }

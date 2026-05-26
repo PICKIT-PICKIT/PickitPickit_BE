@@ -11,10 +11,14 @@ import java.util.HexFormat;
 public class TokenHashEncoder {
 
     public String hash(String token) {
+        if (token == null || token.isBlank()) {
+            throw new IllegalArgumentException("token은 필수입니다.");
+        }
+
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hashed = digest.digest(token.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hashed);
+            byte[] encoded = digest.digest(token.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(encoded);
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 알고리즘을 사용할 수 없습니다.", e);
         }

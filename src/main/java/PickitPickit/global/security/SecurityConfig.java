@@ -1,23 +1,12 @@
 package PickitPickit.global.security;
 
-import PickitPickit.global.dto.ErrorResponse;
-import PickitPickit.global.response.ErrorStatus;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.MediaType;
-import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
-import org.springframework.security.oauth2.core.OAuth2Error;
-import org.springframework.security.oauth2.core.OAuth2TokenValidator;
-import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
@@ -31,13 +20,12 @@ import java.nio.charset.StandardCharsets;
 
 @Configuration
 @RequiredArgsConstructor
+// 개발 중 전체 API 확인할 때는 @EnableMethodSecurity를 빼라.
+// @PreAuthorize가 살아 있으면 permitAll이어도 막힐 수 있다.
+// @EnableMethodSecurity
 public class SecurityConfig {
 
-    private static final String TOKEN_TYPE_CLAIM = "token_type";
-    private static final String ACCESS_TOKEN_TYPE = "access";
-
     private final JwtProperties jwtProperties;
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -45,49 +33,38 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**",
-                                "/actuator/health",
-                                "/api/auth/kakao/login",
-                                "/api/auth/token/reissue",
-                                "/api/auth/logout"
-                        ).permitAll()
-                        .requestMatchers("/api/onboarding/**").authenticated()
-                        .requestMatchers("/api/auth/me").authenticated()
                         .anyRequest().permitAll()
                 )
-                .exceptionHandling(exception -> exception
-                        .authenticationEntryPoint((request, response, authException) ->
-                                writeError(response, ErrorStatus.UNAUTHORIZED))
-                        .accessDeniedHandler((request, response, accessDeniedException) ->
-                                writeError(response, ErrorStatus.FORBIDDEN))
-                )
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.decoder(jwtDecoder())))
                 .build();
     }
 
+    /**
+     * AuthService, JwtTokenProvider에서 JwtEncoder를 쓰고 있으므로 Bean은 유지한다.
+     */
     @Bean
     public JwtEncoder jwtEncoder() {
         return new NimbusJwtEncoder(new ImmutableSecret<>(secretKey()));
     }
 
+    /**
+     * RefreshTokenService, AuthController 등에서 JwtDecoder Bean이 필요할 수 있으므로 유지한다.
+     */
     @Bean
     public JwtDecoder jwtDecoder() {
         NimbusJwtDecoder jwtDecoder = createJwtDecoder();
-        jwtDecoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
-                JwtValidators.createDefaultWithIssuer(jwtProperties.getIssuer()),
-                accessTokenValidator()
-        ));
+        jwtDecoder.setJwtValidator(
+                JwtValidators.createDefaultWithIssuer(jwtProperties.getIssuer())
+        );
         return jwtDecoder;
     }
 
     @Bean
     public JwtDecoder refreshTokenJwtDecoder() {
         NimbusJwtDecoder jwtDecoder = createJwtDecoder();
-        jwtDecoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(jwtProperties.getIssuer()));
+        jwtDecoder.setJwtValidator(
+                JwtValidators.createDefaultWithIssuer(jwtProperties.getIssuer())
+        );
         return jwtDecoder;
     }
 
@@ -97,32 +74,10 @@ public class SecurityConfig {
                 .build();
     }
 
-    private OAuth2TokenValidator<Jwt> accessTokenValidator() {
-        OAuth2Error error = new OAuth2Error(
-                "invalid_token",
-                "Access token is required for protected APIs.",
-                null
-        );
-
-        return jwt -> {
-            if (ACCESS_TOKEN_TYPE.equals(jwt.getClaimAsString(TOKEN_TYPE_CLAIM))) {
-                return OAuth2TokenValidatorResult.success();
-            }
-            return OAuth2TokenValidatorResult.failure(error);
-        };
-    }
-
     private SecretKey secretKey() {
         return new SecretKeySpec(
                 jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8),
                 "HmacSHA256"
         );
-    }
-
-    private void writeError(HttpServletResponse response, ErrorStatus errorStatus) throws java.io.IOException {
-        response.setStatus(errorStatus.getStatus().value());
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        objectMapper.writeValue(response.getWriter(), ErrorResponse.of(errorStatus.getCode(), errorStatus.getMessage()));
     }
 }

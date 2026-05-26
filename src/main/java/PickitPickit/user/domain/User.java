@@ -48,16 +48,21 @@ public class User extends BaseTimeEntity {
     @Column(name = "onboarding_completed", nullable = false)
     private boolean onboardingCompleted;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false, length = 20)
+    private UserRole role;
+
     @Builder
     private User(String kakaoId, String nickname, String profileImageUrl,
                  String kakaoProfileImageUrl, ProfileImageType profileImageType,
-                 boolean onboardingCompleted) {
+                 boolean onboardingCompleted, UserRole role) {
         this.kakaoId = kakaoId;
         this.nickname = nickname;
         this.profileImageUrl = profileImageUrl;
         this.kakaoProfileImageUrl = kakaoProfileImageUrl;
         this.profileImageType = profileImageType;
         this.onboardingCompleted = onboardingCompleted;
+        this.role = role == null ? UserRole.USER : role;
     }
 
     public static User createFromKakao(String kakaoId, String nickname, String profileImageUrl) {
@@ -72,6 +77,7 @@ public class User extends BaseTimeEntity {
                 .kakaoProfileImageUrl(profileImageUrl)
                 .profileImageType(profileImageType)
                 .onboardingCompleted(false)
+                .role(UserRole.USER)
                 .build();
     }
 
@@ -96,5 +102,9 @@ public class User extends BaseTimeEntity {
 
     public void completeOnboarding() {
         this.onboardingCompleted = true;
+    }
+
+    public void changeRole(UserRole role) {
+        this.role = role == null ? UserRole.USER : role;
     }
 }
