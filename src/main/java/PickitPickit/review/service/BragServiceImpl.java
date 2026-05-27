@@ -43,6 +43,14 @@ public class BragServiceImpl implements BragService {
     }
 
     @Override
+    public List<BragResponse> getMyBrags(Long userId) {
+        return bragRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
+                .stream()
+                .map(BragResponse::from)
+                .toList();
+    }
+
+    @Override
     @Transactional
     public BragResponse updateBrag(Long bragId, BragUpdateRequest request) {
         Brag brag = bragRepository.findByIdAndUserId(bragId, request.userId())

@@ -107,4 +107,14 @@ public class User extends BaseTimeEntity {
     public void changeRole(UserRole role) {
         this.role = role == null ? UserRole.USER : role;
     }
+
+    // 마이페이지 수정용
+    public void changeNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
+    public void changeProfileImage(ProfileImageType profileImageType, String profileImageUrl) {
+        this.profileImageType = profileImageType;
+        this.profileImageUrl = profileImageUrl;
+    }
 }

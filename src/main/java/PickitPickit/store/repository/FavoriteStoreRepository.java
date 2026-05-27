@@ -15,4 +15,6 @@ public interface FavoriteStoreRepository extends JpaRepository<FavoriteStore, Lo
 
     @EntityGraph(attributePaths = {"store"})
     List<FavoriteStore> findAllByUserIdOrderByCreatedAtDesc(Long userId);
+
+    long countByUserId(Long userId);
 }

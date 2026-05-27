@@ -11,4 +11,8 @@ public interface BragRepository extends JpaRepository<Brag, Long> {
     Optional<Brag> findByIdAndUserId(Long id, Long userId);
 
     List<Brag> findAllByOrderByCreatedAtDesc();
+
+    List<Brag> findAllByUserIdOrderByCreatedAtDesc(Long userId);
+
+    long countByUserId(Long userId);
 }

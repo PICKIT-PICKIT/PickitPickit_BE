@@ -12,6 +12,8 @@ public interface BragService {
 
     List<BragResponse> getBrags();
 
+    List<BragResponse> getMyBrags(Long userId);
+
     BragResponse updateBrag(Long bragId, BragUpdateRequest request);
 
     void deleteBrag(Long bragId, Long userId);

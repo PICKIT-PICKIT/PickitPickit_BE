@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
 import java.util.List;
 
@@ -19,6 +20,7 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/stores")
+@SecurityRequirement(name = "bearerAuth")
 public class StoreController {
 
     private final StoreService storeService;
@@ -61,7 +63,7 @@ public class StoreController {
                     - lat, lng를 함께 전달하면 가까운 순으로 정렬합니다.
                     - lat, lng를 생략하면 매장명 기준으로 정렬합니다.
                     - limit 허용값: 1~50
-                    - 로그인 없이 조회 가능합니다.
+                    
                     """
     )
     @GetMapping("/search")
@@ -92,7 +94,7 @@ public class StoreController {
 
                     - lat, lng를 함께 전달하면 현재 위치 기준 거리를 계산합니다.
                     - lat, lng를 생략하면 distance는 0으로 반환됩니다.
-                    - 로그인 없이 조회 가능합니다.
+                    
                     """
     )
     @GetMapping("/{storeId}")

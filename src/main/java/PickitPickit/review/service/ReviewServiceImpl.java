@@ -75,6 +75,14 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     @Override
+    public List<ReviewResponse> getMyReviews(Long userId) {
+        return reviewRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
+                .stream()
+                .map(ReviewResponse::from)
+                .toList();
+    }
+
+    @Override
     @Transactional
     public ReviewResponse updateReview(Long reviewId, ReviewUpdateRequest request) {
         Review review = reviewRepository.findByIdAndUserId(reviewId, request.userId())
