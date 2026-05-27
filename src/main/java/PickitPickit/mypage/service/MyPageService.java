@@ -8,4 +8,6 @@ public interface MyPageService {
     MyPageProfileResponse getProfile(Long userId);
 
     MyPageProfileResponse updateProfile(Long userId, MyPageProfileUpdateRequest request);
+
+    void withdraw(Long userId);
 }

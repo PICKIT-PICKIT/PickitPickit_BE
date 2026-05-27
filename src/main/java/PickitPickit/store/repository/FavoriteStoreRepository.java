@@ -17,4 +17,6 @@ public interface FavoriteStoreRepository extends JpaRepository<FavoriteStore, Lo
     List<FavoriteStore> findAllByUserIdOrderByCreatedAtDesc(Long userId);
 
     long countByUserId(Long userId);
+
+    void deleteByUserId(Long userId);
 }

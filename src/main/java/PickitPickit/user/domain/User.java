@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Getter
 @Entity
 @Table(
@@ -24,6 +26,8 @@ import lombok.NoArgsConstructor;
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseTimeEntity {
+
+    private static final String WITHDRAWN_DISPLAY_NICKNAME = "탈퇴한 사용자";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -52,10 +56,18 @@ public class User extends BaseTimeEntity {
     @Column(name = "role", nullable = false, length = 20)
     private UserRole role;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private UserStatus status;
+
+    @Column(name = "withdrawn_at")
+    private LocalDateTime withdrawnAt;
+
     @Builder
     private User(String kakaoId, String nickname, String profileImageUrl,
                  String kakaoProfileImageUrl, ProfileImageType profileImageType,
-                 boolean onboardingCompleted, UserRole role) {
+                 boolean onboardingCompleted, UserRole role,
+                 UserStatus status, LocalDateTime withdrawnAt) {
         this.kakaoId = kakaoId;
         this.nickname = nickname;
         this.profileImageUrl = profileImageUrl;
@@ -63,6 +75,8 @@ public class User extends BaseTimeEntity {
         this.profileImageType = profileImageType;
         this.onboardingCompleted = onboardingCompleted;
         this.role = role == null ? UserRole.USER : role;
+        this.status = status == null ? UserStatus.ACTIVE : status;
+        this.withdrawnAt = withdrawnAt;
     }
 
     public static User createFromKakao(String kakaoId, String nickname, String profileImageUrl) {
@@ -78,10 +92,15 @@ public class User extends BaseTimeEntity {
                 .profileImageType(profileImageType)
                 .onboardingCompleted(false)
                 .role(UserRole.USER)
+                .status(UserStatus.ACTIVE)
                 .build();
     }
 
     public void updateKakaoProfileImageUrl(String kakaoProfileImageUrl) {
+        if (isWithdrawn()) {
+            return;
+        }
+
         this.kakaoProfileImageUrl = kakaoProfileImageUrl;
     }
 
@@ -96,6 +115,15 @@ public class User extends BaseTimeEntity {
         this.onboardingCompleted = false;
     }
 
+    public void changeNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
+    public void changeProfileImage(ProfileImageType profileImageType, String profileImageUrl) {
+        this.profileImageType = profileImageType;
+        this.profileImageUrl = profileImageUrl;
+    }
+
     public void markOnboardingIncomplete() {
         this.onboardingCompleted = false;
     }
@@ -108,13 +136,38 @@ public class User extends BaseTimeEntity {
         this.role = role == null ? UserRole.USER : role;
     }
 
-    // 마이페이지 수정용
-    public void changeNickname(String nickname) {
-        this.nickname = nickname;
+    public void withdraw() {
+        if (isWithdrawn()) {
+            return;
+        }
+
+        if (this.id == null) {
+            throw new IllegalStateException("영속화되지 않은 사용자는 탈퇴 처리할 수 없습니다.");
+        }
+
+        this.kakaoId = "withdrawn_" + this.id;
+        this.nickname = "withdrawn_user_" + this.id;
+        this.profileImageUrl = null;
+        this.kakaoProfileImageUrl = null;
+        this.profileImageType = null;
+        this.onboardingCompleted = false;
+        this.status = UserStatus.WITHDRAWN;
+        this.withdrawnAt = LocalDateTime.now();
     }
 
-    public void changeProfileImage(ProfileImageType profileImageType, String profileImageUrl) {
-        this.profileImageType = profileImageType;
-        this.profileImageUrl = profileImageUrl;
+    public boolean isActive() {
+        return this.status == UserStatus.ACTIVE;
+    }
+
+    public boolean isWithdrawn() {
+        return this.status == UserStatus.WITHDRAWN;
+    }
+
+    public String getDisplayNickname() {
+        return isWithdrawn() ? WITHDRAWN_DISPLAY_NICKNAME : this.nickname;
+    }
+
+    public String getDisplayProfileImageUrl() {
+        return isWithdrawn() ? null : this.profileImageUrl;
     }
 }

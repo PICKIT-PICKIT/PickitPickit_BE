@@ -1,5 +1,6 @@
 package PickitPickit.mypage.service;
 
+import PickitPickit.auth.repository.RefreshTokenRepository;
 import PickitPickit.global.exception.ApiException;
 import PickitPickit.global.response.ErrorStatus;
 import PickitPickit.mypage.dto.request.MyPageProfileUpdateRequest;
@@ -13,9 +14,11 @@ import PickitPickit.onboarding.repository.UserInterestTagRepository;
 import PickitPickit.onboarding.service.DefaultProfileImageCatalog;
 import PickitPickit.review.repository.BragRepository;
 import PickitPickit.review.repository.ReviewRepository;
+import PickitPickit.search.service.SearchLogService;
 import PickitPickit.store.repository.FavoriteStoreRepository;
 import PickitPickit.user.domain.ProfileImageType;
 import PickitPickit.user.domain.User;
+import PickitPickit.user.domain.UserStatus;
 import PickitPickit.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -34,7 +37,7 @@ import java.util.stream.Collectors;
 public class MyPageServiceImpl implements MyPageService {
 
     private static final int NICKNAME_MIN_LENGTH = 2;
-    private static final int NICKNAME_MAX_LENGTH = 10;
+    private static final int NICKNAME_MAX_LENGTH = 15;
 
     private final UserRepository userRepository;
     private final InterestTagRepository interestTagRepository;
@@ -43,10 +46,12 @@ public class MyPageServiceImpl implements MyPageService {
     private final ReviewRepository reviewRepository;
     private final BragRepository bragRepository;
     private final FavoriteStoreRepository favoriteStoreRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final SearchLogService searchLogService;
 
     @Override
     public MyPageProfileResponse getProfile(Long userId) {
-        User user = getUser(userId);
+        User user = getActiveUser(userId);
         return toResponse(user);
     }
 
@@ -57,7 +62,7 @@ public class MyPageServiceImpl implements MyPageService {
             throw new ApiException(ErrorStatus.INVALID_INPUT, "수정할 프로필 정보가 필요합니다.");
         }
 
-        User user = getUser(userId);
+        User user = getActiveUser(userId);
 
         String nickname = normalizeNickname(request.nickname());
         validateNickname(nickname, user.getId());
@@ -86,8 +91,21 @@ public class MyPageServiceImpl implements MyPageService {
         return toResponse(user);
     }
 
-    private User getUser(Long userId) {
-        return userRepository.findById(userId)
+    @Override
+    @Transactional
+    public void withdraw(Long userId) {
+        User user = getActiveUser(userId);
+
+        refreshTokenRepository.deleteByUserId(userId);
+        userInterestTagRepository.deleteByUser(user);
+        favoriteStoreRepository.deleteByUserId(userId);
+        searchLogService.clearRecentSearches(userId);
+
+        user.withdraw();
+    }
+
+    private User getActiveUser(Long userId) {
+        return userRepository.findByIdAndStatus(userId, UserStatus.ACTIVE)
                 .orElseThrow(() -> new ApiException(
                         ErrorStatus.USER_NOT_FOUND,
                         "해당 사용자를 찾을 수 없습니다."

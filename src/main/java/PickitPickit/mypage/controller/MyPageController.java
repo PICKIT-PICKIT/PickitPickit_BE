@@ -88,6 +88,25 @@ public class MyPageController {
         );
     }
 
+    @Operation(
+            summary = "회원 탈퇴",
+            description = """
+                    현재 로그인 사용자를 탈퇴 처리합니다.
+
+                    - refresh token을 삭제합니다.
+                    - 닉네임, 프로필 이미지, 카카오 프로필 URL을 익명화합니다.
+                    - 관심 태그, 관심 매장, 검색 기록을 삭제합니다.
+                    - 리뷰와 자랑하기는 유지하되 작성자 표시는 탈퇴한 사용자로 처리됩니다.
+                    """
+    )
+    @DeleteMapping
+    public ResponseEntity<ApiResponse<Void>> withdraw(
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        myPageService.withdraw(getUserId(jwt));
+        return ApiResponse.success(SuccessStatus.DELETED);
+    }
+
     private Long getUserId(Jwt jwt) {
         return Long.parseLong(jwt.getSubject());
     }
