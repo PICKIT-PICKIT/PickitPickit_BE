@@ -64,14 +64,13 @@ public class SecurityConfig {
                         ).permitAll()
 
                         .requestMatchers(
-                                "/api/stores/**"
-                        ).permitAll()
-
-                        .requestMatchers(
                                 "/api/auth/me",
                                 "/api/onboarding/**",
                                 "/api/reviews/**",
-                                "/api/search-logs/**"
+                                "/api/search-logs/**",
+                                "/api/users/me/**",
+                                "/api/stores/**"
+
                         ).authenticated()
 
                         .requestMatchers(
