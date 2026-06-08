@@ -12,6 +12,7 @@ import PickitPickit.global.security.JwtTokenProvider;
 import PickitPickit.global.security.TokenPair;
 import PickitPickit.user.domain.ProfileImageType;
 import PickitPickit.user.domain.User;
+import PickitPickit.user.domain.UserStatus;
 import PickitPickit.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -64,14 +65,14 @@ class AuthServiceTest {
         TokenPair tokenPair = tokenPair();
 
         when(kakaoAuthClient.getUserInfo(KAKAO_ACCESS_TOKEN)).thenReturn(kakaoUser);
-        when(userRepository.findByKakaoId("12345")).thenReturn(Optional.empty());
+        when(userRepository.findByKakaoIdAndStatus("12345", UserStatus.ACTIVE)).thenReturn(Optional.empty());
         when(userRepository.existsByNickname("민수")).thenReturn(false);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);
             ReflectionTestUtils.setField(user, "id", 1L);
             return user;
         });
-        when(jwtTokenProvider.createTokenPair(1L)).thenReturn(tokenPair);
+        when(jwtTokenProvider.createTokenPair(any(User.class))).thenReturn(tokenPair);
 
         LoginResponse response = authService.loginWithKakao(new KakaoLoginRequest(KAKAO_ACCESS_TOKEN));
 
@@ -98,8 +99,8 @@ class AuthServiceTest {
 
         when(kakaoAuthClient.getUserInfo(KAKAO_ACCESS_TOKEN))
                 .thenReturn(kakaoUser(12345L, "새닉네임", "new-image"));
-        when(userRepository.findByKakaoId("12345")).thenReturn(Optional.of(existingUser));
-        when(jwtTokenProvider.createTokenPair(1L)).thenReturn(tokenPair());
+        when(userRepository.findByKakaoIdAndStatus("12345", UserStatus.ACTIVE)).thenReturn(Optional.of(existingUser));
+        when(jwtTokenProvider.createTokenPair(existingUser)).thenReturn(tokenPair());
 
         LoginResponse response = authService.loginWithKakao(new KakaoLoginRequest(KAKAO_ACCESS_TOKEN));
 
@@ -115,14 +116,14 @@ class AuthServiceTest {
     void loginWithKakaoCreatesTemporaryNicknameWhenKakaoNicknameIsMissing() {
         when(kakaoAuthClient.getUserInfo(KAKAO_ACCESS_TOKEN))
                 .thenReturn(kakaoUser(12345L, null, null));
-        when(userRepository.findByKakaoId("12345")).thenReturn(Optional.empty());
+        when(userRepository.findByKakaoIdAndStatus("12345", UserStatus.ACTIVE)).thenReturn(Optional.empty());
         when(userRepository.existsByNickname("pickit_12345")).thenReturn(false);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);
             ReflectionTestUtils.setField(user, "id", 1L);
             return user;
         });
-        when(jwtTokenProvider.createTokenPair(1L)).thenReturn(tokenPair());
+        when(jwtTokenProvider.createTokenPair(any(User.class))).thenReturn(tokenPair());
 
         LoginResponse response = authService.loginWithKakao(new KakaoLoginRequest(KAKAO_ACCESS_TOKEN));
 
@@ -138,7 +139,7 @@ class AuthServiceTest {
 
         when(jwtTokenProvider.getRefreshTokenUserId("old-refresh-token")).thenReturn(1L);
         when(refreshTokenService.getValidToken("old-refresh-token")).thenReturn(savedToken);
-        when(jwtTokenProvider.createTokenPair(1L)).thenReturn(tokenPair);
+        when(jwtTokenProvider.createTokenPair(user)).thenReturn(tokenPair);
 
         TokenResponse response = authService.reissue(new RefreshTokenRequest("old-refresh-token"));
 
@@ -159,7 +160,7 @@ class AuthServiceTest {
         User user = User.createFromKakao("12345", "민수", "profile-image");
         ReflectionTestUtils.setField(user, "id", 1L);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdAndStatus(1L, UserStatus.ACTIVE)).thenReturn(Optional.of(user));
 
         assertThat(authService.getCurrentUser(1L).nickname()).isEqualTo("민수");
     }
@@ -174,6 +175,12 @@ class AuthServiceTest {
     }
 
     private TokenPair tokenPair() {
-        return new TokenPair("access-token", "refresh-token", Instant.now().plusSeconds(1209600));
+        Instant now = Instant.now();
+        return new TokenPair(
+                "access-token",
+                "refresh-token",
+                now.plusSeconds(3600),
+                now.plusSeconds(1209600)
+        );
     }
 }
