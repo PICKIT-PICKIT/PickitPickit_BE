@@ -22,13 +22,13 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/api/admin/items")
 @SecurityRequirement(name = "bearerAuth")
-@PreAuthorize("@rolePermissionChecker.isAdmin(authentication)")
 public class ItemAdminController {
 
     private final ItemAdminService itemAdminService;
 
     @Operation(summary = "상품 마스터 등록")
     @PostMapping
+    @PreAuthorize("@rolePermissionChecker.isAdminOrStoreOwner(authentication)")
     public ResponseEntity<ApiResponse<ItemResponse>> create(
             @Valid @RequestBody ItemCreateRequest request
     ) {
@@ -37,12 +37,14 @@ public class ItemAdminController {
 
     @Operation(summary = "상품 마스터 목록 조회")
     @GetMapping
+    @PreAuthorize("@rolePermissionChecker.isAdmin(authentication)")
     public ResponseEntity<ApiResponse<List<ItemResponse>>> getItems() {
         return ApiResponse.success(SuccessStatus.FETCHED, itemAdminService.getItems());
     }
 
     @Operation(summary = "상품 마스터 수정")
     @PatchMapping("/{itemId}")
+    @PreAuthorize("@rolePermissionChecker.isAdmin(authentication)")
     public ResponseEntity<ApiResponse<ItemResponse>> update(
             @PathVariable Long itemId,
             @Valid @RequestBody ItemUpdateRequest request
