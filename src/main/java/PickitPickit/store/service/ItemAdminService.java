@@ -41,7 +41,11 @@ public class ItemAdminService {
     }
 
     public List<ItemResponse> getItems() {
-        List<Item> items = itemRepository.findAllByOrderByNameAsc();
+        return getItems(null);
+    }
+
+    public List<ItemResponse> getItems(String keyword) {
+        List<Item> items = findItems(keyword);
         List<Long> itemIds = items.stream().map(Item::getId).toList();
         Map<Long, List<TagResponse>> tagMap = getItemTagMap(itemIds);
 
@@ -80,6 +84,13 @@ public class ItemAdminService {
                 .map(ItemTag::getTag)
                 .map(TagResponse::from)
                 .toList();
+    }
+
+    private List<Item> findItems(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return itemRepository.findAllByOrderByNameAsc();
+        }
+        return itemRepository.findByNameContainingIgnoreCaseOrderByNameAsc(keyword.trim());
     }
 
     private Map<Long, List<TagResponse>> getItemTagMap(Collection<Long> itemIds) {

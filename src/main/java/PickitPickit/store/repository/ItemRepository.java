@@ -10,4 +10,6 @@ public interface ItemRepository extends JpaRepository<Item, Long> {
     boolean existsByName(String name);
 
     List<Item> findAllByOrderByNameAsc();
+
+    List<Item> findByNameContainingIgnoreCaseOrderByNameAsc(String keyword);
 }
