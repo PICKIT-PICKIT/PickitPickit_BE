@@ -33,7 +33,7 @@ public interface StoreProductTagRepository extends JpaRepository<StoreProductTag
             """)
     List<StoreProductTag> findAllByStoreProductIdOrderByTagNameAsc(@Param("storeProductId") Long storeProductId);
 
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Modifying(flushAutomatically = true)
     @Query("delete from StoreProductTag spt where spt.storeProduct.id = :storeProductId")
     long deleteAllByStoreProductId(@Param("storeProductId") Long storeProductId);
 
