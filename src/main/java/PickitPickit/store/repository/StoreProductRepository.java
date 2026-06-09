@@ -18,6 +18,9 @@ public interface StoreProductRepository extends JpaRepository<StoreProduct, Long
     @EntityGraph(attributePaths = {"store", "item"})
     List<StoreProduct> findAllByIdIn(Collection<Long> ids);
 
+    @EntityGraph(attributePaths = {"store", "item"})
+    List<StoreProduct> findAllByStoreIdIn(Collection<Long> storeIds);
+
     boolean existsByStoreIdAndItemId(Long storeId, Long itemId);
 
     @Query("select sp.store.id from StoreProduct sp where sp.id = :storeProductId")

@@ -37,6 +37,16 @@ public interface StoreTagRepository extends JpaRepository<StoreTag, Long> {
             @Param("source") StoreTagSource source
     );
 
+    @EntityGraph(attributePaths = {"store", "tag"})
+    @Query("""
+            select st
+            from StoreTag st
+            join st.tag t
+            where st.store.id in :storeIds
+            order by t.name asc
+            """)
+    List<StoreTag> findAllByStoreIdInOrderByTagNameAsc(@Param("storeIds") List<Long> storeIds);
+
     Optional<StoreTag> findByStoreIdAndTagId(Long storeId, Long tagId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
