@@ -1,5 +1,6 @@
 package PickitPickit.global.security;
 
+import PickitPickit.user.domain.User;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -7,6 +8,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidationException;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -28,7 +30,7 @@ class JwtTokenProviderTest {
 
     @Test
     void accessTokenDecoderAcceptsOnlyAccessTokenForProtectedApis() {
-        TokenPair tokenPair = jwtTokenProvider.createTokenPair(1L);
+        TokenPair tokenPair = jwtTokenProvider.createTokenPair(user());
 
         assertThat(accessTokenJwtDecoder.decode(tokenPair.accessToken()).getSubject()).isEqualTo("1");
         assertThatThrownBy(() -> accessTokenJwtDecoder.decode(tokenPair.refreshToken()))
@@ -37,7 +39,7 @@ class JwtTokenProviderTest {
 
     @Test
     void refreshTokenDecoderStillAllowsRefreshTokenForReissueFlow() {
-        TokenPair tokenPair = jwtTokenProvider.createTokenPair(1L);
+        TokenPair tokenPair = jwtTokenProvider.createTokenPair(user());
 
         assertThat(refreshTokenJwtDecoder.decode(tokenPair.refreshToken()).getClaimAsString("token_type"))
                 .isEqualTo("refresh");
@@ -45,8 +47,14 @@ class JwtTokenProviderTest {
 
     @Test
     void tokenProviderCanReadUserIdFromRefreshTokenForReissueFlow() {
-        TokenPair tokenPair = jwtTokenProvider.createTokenPair(1L);
+        TokenPair tokenPair = jwtTokenProvider.createTokenPair(user());
 
         assertThat(jwtTokenProvider.getRefreshTokenUserId(tokenPair.refreshToken())).isEqualTo(1L);
+    }
+
+    private User user() {
+        User user = User.createFromKakao("12345", "민수", null);
+        ReflectionTestUtils.setField(user, "id", 1L);
+        return user;
     }
 }

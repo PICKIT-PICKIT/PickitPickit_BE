@@ -1,12 +1,15 @@
 package PickitPickit.review.dto.response;
 
 import PickitPickit.review.domain.Review;
+import PickitPickit.user.domain.User;
 
 import java.time.LocalDateTime;
 
 public record ReviewResponse(
         Long reviewId,
         Long userId,
+        String authorNickname,
+        String authorProfileImageUrl,
         Long storeId,
         double rating,
         Integer difficulty,
@@ -17,9 +20,17 @@ public record ReviewResponse(
         LocalDateTime modifiedAt
 ) {
     public static ReviewResponse from(Review review) {
+        return from(review, null);
+    }
+
+    public static ReviewResponse from(Review review, User author) {
+        boolean withdrawn = author == null || author.isWithdrawn();
+
         return new ReviewResponse(
                 review.getId(),
-                review.getUserId(),
+                withdrawn ? null : review.getUserId(),
+                withdrawn ? "탈퇴한 사용자" : author.getDisplayNickname(),
+                withdrawn ? null : author.getDisplayProfileImageUrl(),
                 review.getStoreId(),
                 review.getRating(),
                 review.getDifficulty(),

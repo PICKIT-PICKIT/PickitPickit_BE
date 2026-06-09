@@ -1,21 +1,20 @@
 package PickitPickit.global.security;
 
-import PickitPickit.global.dto.ErrorResponse;
 import PickitPickit.global.response.ErrorStatus;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -31,13 +30,13 @@ import java.nio.charset.StandardCharsets;
 
 @Configuration
 @RequiredArgsConstructor
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private static final String TOKEN_TYPE_CLAIM = "token_type";
     private static final String ACCESS_TOKEN_TYPE = "access";
 
     private final JwtProperties jwtProperties;
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -45,49 +44,86 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/swagger-ui/**",
+                                "/swagger-ui.html",
                                 "/v3/api-docs/**",
-                                "/actuator/health",
+                                "/actuator/health"
+                        ).permitAll()
+
+                        .requestMatchers(
                                 "/api/auth/kakao/login",
+                                "/api/auth/kakao/authorize",
+                                "/api/auth/kakao/callback",
                                 "/api/auth/token/reissue",
                                 "/api/auth/logout"
                         ).permitAll()
-                        .requestMatchers("/api/onboarding/**").authenticated()
-                        .requestMatchers("/api/auth/me").authenticated()
-                        .anyRequest().permitAll()
+
+                        .requestMatchers(
+                                "/api/auth/me",
+                                "/api/onboarding/**",
+                                "/api/reviews/**",
+                                "/api/search-logs/**",
+                                "/api/users/me/**",
+                                "/api/stores/**"
+
+                        ).authenticated()
+
+                        .requestMatchers(
+                                "/api/admin/**",
+                                "/api/owner/**"
+                        ).authenticated()
+
+                        .anyRequest().authenticated()
                 )
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint((request, response, authException) ->
-                                writeError(response, ErrorStatus.UNAUTHORIZED))
+                                writeError(response, ErrorStatus.UNAUTHORIZED)
+                        )
                         .accessDeniedHandler((request, response, accessDeniedException) ->
-                                writeError(response, ErrorStatus.FORBIDDEN))
+                                writeError(response, ErrorStatus.FORBIDDEN)
+                        )
                 )
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.decoder(jwtDecoder())))
+                .oauth2ResourceServer(oauth2 ->
+                        oauth2.jwt(jwt -> jwt.decoder(jwtDecoder()))
+                )
                 .build();
     }
 
+    /**
+     * 중요:
+     * NimbusJwtEncoder에는 SecretKey가 아니라 byte[] 기반 ImmutableSecret을 쓰는 게 안전하다.
+     */
     @Bean
     public JwtEncoder jwtEncoder() {
-        return new NimbusJwtEncoder(new ImmutableSecret<>(secretKey()));
+        byte[] secretBytes = jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8);
+        return new NimbusJwtEncoder(new ImmutableSecret<>(secretBytes));
     }
 
     @Bean
     public JwtDecoder jwtDecoder() {
         NimbusJwtDecoder jwtDecoder = createJwtDecoder();
+
         jwtDecoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
                 JwtValidators.createDefaultWithIssuer(jwtProperties.getIssuer()),
                 accessTokenValidator()
         ));
+
         return jwtDecoder;
     }
 
     @Bean
     public JwtDecoder refreshTokenJwtDecoder() {
         NimbusJwtDecoder jwtDecoder = createJwtDecoder();
-        jwtDecoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(jwtProperties.getIssuer()));
+
+        jwtDecoder.setJwtValidator(
+                JwtValidators.createDefaultWithIssuer(jwtProperties.getIssuer())
+        );
+
         return jwtDecoder;
     }
 
@@ -98,17 +134,20 @@ public class SecurityConfig {
     }
 
     private OAuth2TokenValidator<Jwt> accessTokenValidator() {
-        OAuth2Error error = new OAuth2Error(
-                "invalid_token",
-                "Access token is required for protected APIs.",
-                null
-        );
-
         return jwt -> {
-            if (ACCESS_TOKEN_TYPE.equals(jwt.getClaimAsString(TOKEN_TYPE_CLAIM))) {
+            String tokenType = jwt.getClaimAsString(TOKEN_TYPE_CLAIM);
+
+            if (ACCESS_TOKEN_TYPE.equals(tokenType)) {
                 return OAuth2TokenValidatorResult.success();
             }
-            return OAuth2TokenValidatorResult.failure(error);
+
+            return OAuth2TokenValidatorResult.failure(
+                    new OAuth2Error(
+                            "invalid_token",
+                            "Access token is required for protected APIs.",
+                            null
+                    )
+            );
         };
     }
 
@@ -123,6 +162,31 @@ public class SecurityConfig {
         response.setStatus(errorStatus.getStatus().value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        objectMapper.writeValue(response.getWriter(), ErrorResponse.of(errorStatus.getCode(), errorStatus.getMessage()));
+
+        String body = """
+                {
+                  "code": "%s",
+                  "message": "%s",
+                  "data": null
+                }
+                """.formatted(
+                escapeJson(errorStatus.getCode()),
+                escapeJson(errorStatus.getMessage())
+        );
+
+        response.getWriter().write(body);
+    }
+
+    private String escapeJson(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        return value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 }

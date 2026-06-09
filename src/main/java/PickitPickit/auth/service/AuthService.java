@@ -14,6 +14,7 @@ import PickitPickit.global.response.ErrorStatus;
 import PickitPickit.global.security.JwtTokenProvider;
 import PickitPickit.global.security.TokenPair;
 import PickitPickit.user.domain.User;
+import PickitPickit.user.domain.UserStatus;
 import PickitPickit.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,7 +34,7 @@ public class AuthService {
     public LoginResponse loginWithKakao(KakaoLoginRequest request) {
         KakaoUserResponse kakaoUser = kakaoAuthClient.getUserInfo(request.kakaoAccessToken());
         User user = findOrCreateUser(kakaoUser);
-        TokenPair tokenPair = jwtTokenProvider.createTokenPair(user.getId());
+        TokenPair tokenPair = jwtTokenProvider.createTokenPair(user);
 
         refreshTokenService.rotate(user, tokenPair.refreshToken(), tokenPair.refreshTokenExpiresAt());
 
@@ -46,11 +47,11 @@ public class AuthService {
         RefreshToken savedToken = refreshTokenService.getValidToken(request.refreshToken());
         User user = savedToken.getUser();
 
-        if (!user.getId().equals(tokenUserId)) {
-            throw new ApiException(ErrorStatus.REFRESH_TOKEN_INVALID, "리프레시 토큰의 사용자 정보가 일치하지 않습니다.");
+        if (!user.getId().equals(tokenUserId) || user.isWithdrawn()) {
+            throw new ApiException(ErrorStatus.REFRESH_TOKEN_INVALID, "리프레시 토큰의 사용자 정보가 유효하지 않습니다.");
         }
 
-        TokenPair tokenPair = jwtTokenProvider.createTokenPair(user.getId());
+        TokenPair tokenPair = jwtTokenProvider.createTokenPair(user);
         refreshTokenService.rotate(user, tokenPair.refreshToken(), tokenPair.refreshTokenExpiresAt());
 
         return TokenResponse.from(tokenPair);
@@ -63,7 +64,7 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public AuthUserResponse getCurrentUser(Long userId) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdAndStatus(userId, UserStatus.ACTIVE)
                 .orElseThrow(() -> new ApiException(ErrorStatus.USER_NOT_FOUND, "해당 사용자를 찾을 수 없습니다."));
 
         return AuthUserResponse.from(user);
@@ -77,7 +78,7 @@ public class AuthService {
         String kakaoId = String.valueOf(kakaoUser.id());
         String profileImageUrl = kakaoUser.profileImageUrl();
 
-        return userRepository.findByKakaoId(kakaoId)
+        return userRepository.findByKakaoIdAndStatus(kakaoId, UserStatus.ACTIVE)
                 .map(user -> updateKakaoProfileImage(user, profileImageUrl))
                 .orElseGet(() -> userRepository.save(User.createFromKakao(
                         kakaoId,

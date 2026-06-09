@@ -4,11 +4,11 @@ import PickitPickit.store.domain.StoreProduct;
 
 import java.util.List;
 
-/**
- * 매장 상세 조회 응답 (재고 포함)
- */
 public record StoreDetailResponse(
         StoreResponse store,
+        int productCount,
+        int totalStockQuantity,
+        List<TagResponse> tags,
         List<ProductInfo> products
 ) {
 
@@ -21,9 +21,12 @@ public record StoreDetailResponse(
             String inventoryMode,
             Integer stockQuantity,
             String stockStatus,
-            String imageUrl
+            Integer difficulty,
+            String difficultyLabel,
+            String imageUrl,
+            List<TagResponse> tags
     ) {
-        public static ProductInfo from(StoreProduct sp) {
+        public static ProductInfo from(StoreProduct sp, List<TagResponse> tags) {
             return new ProductInfo(
                     sp.getId(),
                     sp.getItem().getId(),
@@ -32,8 +35,11 @@ public record StoreDetailResponse(
                     sp.getPrice(),
                     sp.getInventoryMode().name(),
                     sp.getStockQuantity(),
-                    sp.getStockStatus() != null ? sp.getStockStatus().name() : null,
-                    sp.getEffectiveImageUrl()
+                    sp.getStockStatus().name(),
+                    sp.getDifficulty(),
+                    sp.getDifficultyLabel(),
+                    sp.getEffectiveImageUrl(),
+                    tags
             );
         }
     }
