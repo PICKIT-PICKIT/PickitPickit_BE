@@ -216,6 +216,11 @@ KAKAO_OAUTH_USER_INFO_URL=https://kapi.kakao.com/v2/user/me
 PUBLIC_API_KEY=<PUBLIC_API_KEY>
 PUBLIC_API_BASE_URL=https://apis.data.go.kr/1741000/youth_game_providers/info
 
+CLAUDE_API_KEY=<ANTHROPIC_CLAUDE_API_KEY>
+CLAUDE_API_BASE_URL=https://api.anthropic.com
+CLAUDE_API_VERSION=2023-06-01
+CLAUDE_API_MODEL=claude-sonnet-4-6
+
 JWT_SECRET=<32_BYTES_OR_LONGER_SECRET>
 JWT_ACCESS_TOKEN_EXPIRATION=3600000
 JWT_REFRESH_TOKEN_EXPIRATION=1209600000
@@ -230,6 +235,7 @@ JWT_REFRESH_TOKEN_EXPIRATION=1209600000
 | `SPRING_DATASOURCE_PASSWORD` | RDS 생성 시 입력한 마스터 비밀번호 |
 | `KAKAO_API_KEY` | Kakao Developers -> 내 애플리케이션 -> 앱 키 -> REST API 키 |
 | `PUBLIC_API_KEY` | 공공데이터포털에서 발급받은 서비스 키 |
+| `CLAUDE_API_KEY` | Anthropic Console -> API Keys에서 발급받은 키 |
 | `JWT_SECRET` | 직접 생성한 32바이트 이상 문자열 |
 
 `JWT_SECRET` 생성 예:
@@ -459,4 +465,5 @@ docker compose -f docker-compose.prod.yml logs --tail=200 api
 | `database does not exist` | DB 이름 |
 | `JWT_SECRET은 32바이트 이상` | `.env`의 `JWT_SECRET` 길이 |
 | `Could not resolve placeholder KAKAO_API_KEY` | `.env` 누락 또는 compose env_file 경로 |
+| AI 추천이 fallback 사유만 반환 | `.env`의 `CLAUDE_API_KEY`, Anthropic API 키 권한 |
 | Nginx `502 Bad Gateway` | Docker 컨테이너 실행 여부, `127.0.0.1:8080` 포트 |
